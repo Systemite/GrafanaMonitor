@@ -1,6 +1,6 @@
-// Discover the CSV. __path__ is the path INSIDE the container (the mount target),
+// Discover the DLQ log. __path__ is the path INSIDE the container (the mount target),
 // not the host path. The "job" label is what you query against in Grafana.
-local.file_match "csv_logs" {
+local.file_match "dlq_log" {
   path_targets = [{
     "__path__" = "/logs/*.dlq",
     "job"      = "subserver_dlq",
@@ -8,11 +8,11 @@ local.file_match "csv_logs" {
   sync_period = "5s"
 }
 
-// Tail the file. tail_from_end avoids re-ingesting a large file's history on
+// Tail the DLQ log. tail_from_end avoids re-ingesting a large file's history on
 // first start; after that, offsets are persisted in the alloy-data volume so
 // restarts resume cleanly. Alloy follows the file through rename/create rotation.
-loki.source.file "csv_scrape" {
-  targets       = local.file_match.csv_logs.targets
+loki.source.file "dlq_log_scrape" {
+  targets       = local.file_match.dlq_log.targets
   forward_to    = [loki.write.default.receiver]
   tail_from_end = true
 }
