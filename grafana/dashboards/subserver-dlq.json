@@ -5,7 +5,7 @@
   "version": 1,
   "editable": true,
   "refresh": "5s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": { "from": "now-20m", "to": "now" },
   "timezone": "",
   "templating": { "list": [] },
   "annotations": { "list": [] },
