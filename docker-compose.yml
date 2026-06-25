@@ -39,6 +39,7 @@ services:
       - "3000:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro # provisioned dashboard JSON
       - grafana-data:/var/lib/grafana
     depends_on: [loki]
     networks: [monitoring]

@@ -1,0 +1,67 @@
+{
+  "uid": "subserver-dlq",
+  "title": "SubServer DLQ Live",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "Live DLQ stream",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"subserver_dlq\"} != \"ThreadId\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Rows per minute",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum(count_over_time({job=\"subserver_dlq\"} != \"ThreadId\" [1m]))",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "TotalTime (seconds) - max per minute",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "max_over_time({job=\"subserver_dlq\"} != \"ThreadId\" | pattern \"<_>,<_>,<_>,<_>,<_>,<_>,<_>,<_>,<tt_h>:<tt_m>:<tt_s>,<_>\" | label_format total_seconds=`{{ addf (mulf (float64 .tt_h) 3600.0) (mulf (float64 .tt_m) 60.0) (float64 .tt_s) }}` | unwrap total_seconds [1m]) by (job)",
+          "queryType": "range"
+        }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: Loki
+    uid: loki   # pinned so dashboards and alert rules can reference it deterministically
     type: loki
     access: proxy
     url: http://loki:3100

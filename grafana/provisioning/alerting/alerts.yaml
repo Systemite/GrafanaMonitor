@@ -1,0 +1,79 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: dummy-noop
+    receivers:
+      - uid: dummy-noop-1
+        type: webhook
+        settings:
+          # Intentionally dead endpoint: no real notifier needed for the demo, the
+          # rule still evaluates and shows "Firing" in the Alerting UI.
+          url: http://localhost:1/noop
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: dummy-noop
+    group_by: ['grafana_folder', 'alertname']
+
+groups:
+  - orgId: 1
+    name: subserver-dlq-rules
+    folder: SubServer Alerts
+    interval: 30s
+    rules:
+      - uid: subserver-totaltime-spike
+        title: TotalTime spike over threshold
+        condition: C
+        for: 0s
+        noDataState: NoData
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: "Max TotalTime exceeded threshold"
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              expr: >-
+                max_over_time(
+                  {job="subserver_dlq"} != "ThreadId"
+                  | pattern "<_>,<_>,<_>,<_>,<_>,<_>,<_>,<_>,<tt_h>:<tt_m>:<tt_s>,<_>"
+                  | label_format total_seconds=`{{ addf (mulf (float64 .tt_h) 3600.0) (mulf (float64 .tt_m) 60.0) (float64 .tt_s) }}`
+                  | unwrap total_seconds [5m]
+                ) by (job)
+              queryType: range
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5]   # fire when max TotalTime > 5 seconds
