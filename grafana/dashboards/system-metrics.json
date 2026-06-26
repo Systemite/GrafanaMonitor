@@ -113,7 +113,8 @@
     {
       "id": 4,
       "type": "gauge",
-      "title": "Commit charge used % (RAM + page file)",
+      "title": "Page file used %",
+      "description": "True page-file usage from the pagefile collector (used = limit - free). The page file is Windows' on-disk swap; high sustained usage together with paging activity (bottom-left) is the memory-pressure signal.",
       "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
@@ -137,8 +138,8 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "windows_memory_committed_bytes / windows_memory_commit_limit * 100",
-          "legendFormat": "commit charge used",
+          "expr": "(windows_pagefile_limit_bytes - windows_pagefile_free_bytes) / windows_pagefile_limit_bytes * 100",
+          "legendFormat": "page file used",
           "instant": true
         }
       ]
@@ -201,8 +202,8 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Commit charge used / limit (bytes)",
-      "description": "Total virtual memory the system has promised to running processes (used) versus the maximum it can promise — RAM plus the page file (limit). As 'used' approaches 'limit' Windows grows the page file if it can, then starts failing allocations once it can't. Used staying well below limit = healthy; used pressing against limit means the system is running out of commit and apps may fail to allocate memory.",
+      "title": "Page file used / limit (bytes)",
+      "description": "Page-file space in use versus its configured limit, from the pagefile collector. As 'used' climbs toward 'limit' the on-disk swap is filling; pair with paging activity to judge impact.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
@@ -210,13 +211,13 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "windows_memory_commit_limit",
+          "expr": "windows_pagefile_limit_bytes",
           "legendFormat": "limit"
         },
         {
           "refId": "B",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "windows_memory_committed_bytes",
+          "expr": "windows_pagefile_limit_bytes - windows_pagefile_free_bytes",
           "legendFormat": "used"
         }
       ]
@@ -224,8 +225,8 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Paging activity — hard faults (pages/sec)",
-      "description": "Pages moved between RAM and disk each second. Near 0 = healthy. Sustained high 'pages in' WHILE available memory is near zero and commit is over 100% means the page file is being thrashed — this is when performance tanks. A brief spike alone (e.g. app launch, file copy) is normal.",
+      "title": "Paging activity - hard faults (pages/sec)",
+      "description": "Pages moved between RAM and disk each second. Near 0 = healthy. Sustained high 'pages in' WHILE available memory is near zero and the page file is filling means the page file is being thrashed - this is when performance tanks. A brief spike alone (app launch, file copy) is normal.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },

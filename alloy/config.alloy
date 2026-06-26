@@ -35,17 +35,32 @@ loki.write "default" {
 
 // ── Metrics: true Windows host CPU / RAM / disk / page file ───────────────────
 // prometheus.exporter.windows is the embedded windows_exporter. These collectors
-// cover the System Metrics dashboard: cpu (usage), cs + memory (RAM),
-// logical_disk (free/size per volume), os (page file), system (uptime/context).
+// cover the System Metrics dashboard: cpu (usage), memory (RAM + hard-fault
+// paging), logical_disk (free/size per volume), pagefile (true page-file
+// used/limit), os + system (info/uptime). The deprecated "cs" collector is
+// intentionally omitted — it emits nothing on this exporter version (which is
+// why windows_cs_* metrics were missing); memory collector covers RAM instead.
 prometheus.exporter.windows "host" {
-  enabled_collectors = ["cpu", "cs", "logical_disk", "memory", "os", "system"]
+  enabled_collectors = ["cpu", "logical_disk", "memory", "os", "pagefile", "system"]
 }
 
-// Scrape the embedded exporter and forward samples to remote_write.
+// Scrape the embedded exporter and forward samples through the relabel filter.
 prometheus.scrape "windows_host" {
   targets         = prometheus.exporter.windows.host.targets
-  forward_to      = [prometheus.remote_write.metrics.receiver]
+  forward_to      = [prometheus.relabel.host.receiver]
   scrape_interval = "15s"
+}
+
+// Drop the pseudo "HarddiskVolumeN" entries (no drive letter) so the disk panels
+// only show real volumes like C:. Dropping here trims stored cardinality too.
+prometheus.relabel "host" {
+  forward_to = [prometheus.remote_write.metrics.receiver]
+
+  rule {
+    source_labels = ["volume"]
+    regex         = "HarddiskVolume.*"
+    action        = "drop"
+  }
 }
 
 // Push metrics to the Dockerized Prometheus (remote-write receiver enabled there).
