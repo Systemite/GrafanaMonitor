@@ -1,15 +1,22 @@
-// Discover the DLQ log. __path__ is the path INSIDE the container (the mount target),
-// not the host path. The "job" label is what you query against in Grafana.
+// This Alloy config runs NATIVELY on the monitored Windows host (not in Docker),
+// so it can both tail the local .dlq files AND read true Windows host metrics via
+// the built-in prometheus.exporter.windows. Loki, Prometheus and Grafana run in
+// Docker and are reached over published localhost ports.
+
+// ── Logs: tail the DLQ CSV ───────────────────────────────────────────────────
+// __path__ is a real Windows path (native install), not a container mount.
+// Point this at the live .dlq directory. The "job" label is what you query in
+// Grafana.
 local.file_match "dlq_log" {
   path_targets = [{
-    "__path__" = "/logs/*.dlq",
+    "__path__" = "C:\\path\\to\\your\\dlq\\*.dlq",
     "job"      = "subserver_dlq",
   }]
   sync_period = "5s"
 }
 
 // Tail the DLQ log. tail_from_end avoids re-ingesting a large file's history on
-// first start; after that, offsets are persisted in the alloy-data volume so
+// first start; after that, offsets are persisted in Alloy's storage path so
 // restarts resume cleanly. Alloy follows the file through rename/create rotation.
 loki.source.file "dlq_log_scrape" {
   targets       = local.file_match.dlq_log.targets
@@ -22,6 +29,28 @@ loki.source.file "dlq_log_scrape" {
 // in the alert.
 loki.write "default" {
   endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
+    url = "http://localhost:3100/loki/api/v1/push"
+  }
+}
+
+// ── Metrics: true Windows host CPU / RAM / disk / page file ───────────────────
+// prometheus.exporter.windows is the embedded windows_exporter. These collectors
+// cover the System Metrics dashboard: cpu (usage), cs + memory (RAM),
+// logical_disk (free/size per volume), os (page file), system (uptime/context).
+prometheus.exporter.windows "host" {
+  enabled_collectors = ["cpu", "cs", "logical_disk", "memory", "os", "system"]
+}
+
+// Scrape the embedded exporter and forward samples to remote_write.
+prometheus.scrape "windows_host" {
+  targets         = prometheus.exporter.windows.host.targets
+  forward_to      = [prometheus.remote_write.metrics.receiver]
+  scrape_interval = "15s"
+}
+
+// Push metrics to the Dockerized Prometheus (remote-write receiver enabled there).
+prometheus.remote_write "metrics" {
+  endpoint {
+    url = "http://localhost:9090/api/v1/write"
   }
 }

@@ -10,23 +10,25 @@ services:
       - loki-data:/loki
     networks: [monitoring]
 
-  alloy:
-    image: grafana/alloy:latest
-    container_name: alloy
+  # NOTE: Alloy runs as a NATIVE Windows service on
+  # the monitored host so it can tail the local .dlq files and read true Windows
+  # host metrics (CPU/RAM/disk/swap) via its built-in prometheus.exporter.windows.
+  # See README and alloy/config.alloy. It talks to the services below over
+  # published localhost ports.
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
     command:
-      - run
-      - --server.http.listen-addr=0.0.0.0:12345
-      - --storage.path=/var/lib/alloy/data
-      - /etc/alloy/config.alloy
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Let native Alloy push metrics in via remote_write.
+      - --web.enable-remote-write-receiver
     ports:
-      - "12345:12345" # Alloy UI for debugging the pipeline
+      - "9090:9090"
     volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
-      - alloy-data:/var/lib/alloy/data
-      # IMPORTANT: mount the DIRECTORY containing the CSV/DLQ, never the file itself.
-      # Using the local ./data folder; drop your CSV/DLQ in there as data/metrics.dlq.
-      - ./data:/logs:ro
-    depends_on: [loki]
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
     networks: [monitoring]
 
   grafana:
@@ -41,12 +43,12 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro # provisioned dashboard JSON
       - grafana-data:/var/lib/grafana
-    depends_on: [loki]
+    depends_on: [loki, prometheus]
     networks: [monitoring]
 
 volumes:
   loki-data:
-  alloy-data:
+  prometheus-data:
   grafana-data:
 
 networks:
